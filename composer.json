@@ -14,7 +14,7 @@
   ],
   "autoload": {
     "psr-4": {
-      "VitesseCms\\Database\\": "src/"
+      "VitesseCms\\Etsy\\": "src/"
     }
   },
   "require": {
