@@ -8,15 +8,8 @@ use VitesseCms\Export\Helpers\EtsyExportHelper;
 use VitesseCms\Export\Models\ExportType;
 use VitesseCms\Language\Models\Language;
 
-/**
- * Class ListingController
- */
 class ListingController extends AbstractAdminController
 {
-    /**
-     * @throws \OAuthException
-     * @throws \Phalcon\Mvc\Collection\Exception
-     */
     public function syncAction(): void
     {
         $datagroup = $this->setting->get('ETSY_LISTING_DATAGROUP');
@@ -41,12 +34,6 @@ class ListingController extends AbstractAdminController
         endif;
     }
 
-    /**
-     * @param Item $item
-     *
-     * @throws \OAuthException
-     * @throws \Phalcon\Mvc\Collection\Exception
-     */
     protected function sync(Item $item): void
     {
         $etsyLanguages = [

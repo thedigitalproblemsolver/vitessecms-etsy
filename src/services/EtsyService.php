@@ -56,13 +56,6 @@ class EtsyService
         }
     }
 
-    /**
-     * @param Item $item
-     *
-     * @return mixed
-     * @throws \OAuthException
-     * @throws \Phalcon\Mvc\Collection\Exception
-     */
     public function createListingFromItem(Item $item)
     {
         $clothingCategory = Item::findById($item->_('parentId'));
@@ -92,13 +85,6 @@ class EtsyService
         return false;
     }
 
-    /**
-     * @param string $imagePath
-     * @param int $listingId
-     *
-     * @return mixed
-     * @throws \OAuthException
-     */
     public function addImageToListing(string $imagePath, int $listingId)
     {
         $mime = mime_content_type($imagePath);
@@ -107,34 +93,16 @@ class EtsyService
             ['@image' => '@'.$imagePath.';type='.$mime]);
     }
 
-    /**
-     * @param int $listingId
-     *
-     * @return mixed
-     * @throws \OAuthException
-     */
     public function getListing(int $listingId)
     {
         return $this->fetch('listings/'.$listingId, [], OAUTH_HTTP_METHOD_GET);
     }
 
-    /**
-     * @param int $listingId
-     *
-     * @return mixed
-     * @throws \OAuthException
-     */
     public function getInventory(int $listingId)
     {
         return $this->fetch('listings/'.$listingId.'/inventory', [], OAUTH_HTTP_METHOD_GET);
     }
 
-    /**
-     * @param Item $item
-     *
-     * @return mixed
-     * @throws \OAuthException
-     */
     public function updateInventoryFromItem(Item $item)
     {
         $products = [];
@@ -229,13 +197,6 @@ class EtsyService
         );
     }
 
-    /**
-     * @param string $apiCall
-     * @param array $params
-     * @param string $method
-     *
-     * @return mixed
-     */
     protected function fetch(string $apiCall, array $params = [], $method = 'POST')
     {
         $options = ['FailOnAccessError' => true];
@@ -258,13 +219,6 @@ class EtsyService
         return $response;
     }
 
-    /**
-     * @param string $apiCall
-     * @param array $params
-     * @param string $method
-     *
-     * @return mixed
-     */
     protected function fetch_native(string $apiCall, array $params = [], $method = 'POST')
     {
         try {
@@ -282,11 +236,6 @@ class EtsyService
         return $response;
     }
 
-    /**
-     * @param Item $item
-     *
-     * @return string
-     */
     protected function builDescription(Item $item, string $language): string
     {
         $description = strip_tags($item->_('introtext', $language));
@@ -321,12 +270,6 @@ class EtsyService
         return trim($description);
     }
 
-    /**
-     * @param string $size
-     * @param Item $item
-     *
-     * @return int
-     */
     protected function getSizeId(string $size, Item $item): int
     {
         if (isset($item->_('etsySizeMapper')[$size]) && !empty($item->_('etsySizeMapper')[$size])) {
@@ -338,11 +281,6 @@ class EtsyService
         die();
     }
 
-    /**
-     * @param string $color
-     *
-     * @return int
-     */
     protected function getColorId(string $color): int
     {
         switch (strtoupper($color)) :
@@ -487,16 +425,6 @@ class EtsyService
  "1219" => "Transparant"
  "1215" => "Zilver */
 
-
-    /**
-     * @param int $colorId
-     * @param int $sizeId
-     * @param int $quantity
-     * @param float $price
-     * @param int $sizePropertyId
-     *
-     * @return mixed
-     */
     protected function inventoryItemFactory(
         int $colorId,
         int $sizeId,
@@ -544,11 +472,6 @@ class EtsyService
         return $inventoryItem;
     }
 
-    /**
-     * @throws \OAuthException
-     * @throws \Phalcon\Mvc\Collection\Exception
-     * @throws \Exception
-     */
     protected function setOauth(): void
     {
         $this->oauth = new \OAuth(
@@ -574,9 +497,6 @@ class EtsyService
         );
     }
 
-    /**
-     * @throws \Phalcon\Mvc\Collection\Exception
-     */
     protected function setOauthClient(): void
     {
         require_once(__DIR__.'/../../../vendor/hatframework/oauth-api/httpclient/http.php');
@@ -606,11 +526,6 @@ class EtsyService
         }
     }
 
-    /**
-     * @param array $variations
-     *
-     * @return array
-     */
     protected function buildBaseSizes(array $variations): array
     {
         $sizes = [];

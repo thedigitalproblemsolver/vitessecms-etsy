@@ -5,14 +5,8 @@ namespace VitesseCms\Etsy\Controllers;
 use VitesseCms\Admin\AbstractAdminController;
 use VitesseCms\Form\Forms\BaseForm;
 
-/**
- * Class AdminlistingController
- */
 class AdminlistingController extends AbstractAdminController
 {
-    /**
-     * @throws \Phalcon\Mvc\Collection\Exception
-     */
     public function rawListingFormAction(): void {
         $form = new BaseForm();
         $form->_(
@@ -32,10 +26,6 @@ class AdminlistingController extends AbstractAdminController
         $this->prepareView();
     }
 
-    /**
-     * @throws \OAuthException
-     * @throws \Phalcon\Mvc\Collection\Exception
-     */
     public function rawListingDisplayAction(): void {
         $this->view->setVar('content', 'Geen Listing ingegeven.');
         if($this->request->isPost()) :
