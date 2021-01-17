@@ -17,7 +17,7 @@ class AdminMenuListener
             $children = new AdminMenuNavBarChildren();
             $children->addChild('Raw Listing', 'admin/etsy/adminlisting/rawListingForm');
 
-            $adminMenu->addDropbown('Etsy', $children);
+            $adminMenu->addDropdown('Etsy', $children);
         endif;
     }
 }
