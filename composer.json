@@ -1,0 +1,23 @@
+{
+  "name": "vitessecms/etsy",
+  "type": "library",
+  "description": "Etsy module for VitesseCms",
+  "keywords": ["php","phalcon","vitessecms"],
+  "homepage": "https://github.com/thedigitalproblemsolver/VitesseCMS",
+  "license": "GPL-2.0-or-later",
+  "version": "0.0.1",
+  "authors": [
+    {
+      "name": "Jasper Jaklofsky",
+      "email": "info@thedigitalproblemsolver.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "VitesseCms\\Etsy\\": "src/"
+    }
+  },
+  "require": {
+    "hatframework/oauth-api": "^0.0.1"
+  }
+}
