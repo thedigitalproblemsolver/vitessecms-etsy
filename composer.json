@@ -18,6 +18,7 @@
     }
   },
   "require": {
-    "hatframework/oauth-api": "^0.0.1"
+    "hatframework/oauth-api": "^0.0.1",
+    "vitessecms/language": "~0.0.1"
   }
 }
