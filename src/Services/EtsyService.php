@@ -175,7 +175,7 @@ class EtsyService
 
     public function getListingTranslation(int $listingId, string $language)
     {
-        return $this->fetch('listings/'.$listingId.'/translations/'.$language, [], OAUTH_HTTP_METHOD_GET);
+        return $this->fetch('listings/'.$listingId.'/Translations/'.$language, [], OAUTH_HTTP_METHOD_GET);
     }
 
     public function updateListingTranslation( Item $item, string $language)
@@ -191,7 +191,7 @@ class EtsyService
         ];
 
         return $this->fetch(
-            'listings/'.$item->_('etsyId').'/translations/'.$language,
+            'listings/'.$item->_('etsyId').'/Translations/'.$language,
             $params,
             OAUTH_HTTP_METHOD_PUT
         );
