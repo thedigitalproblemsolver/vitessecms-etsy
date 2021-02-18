@@ -56,6 +56,60 @@ class EtsyService
         }
     }
 
+    protected function setOauth(): void
+    {
+        $this->oauth = new \OAuth(
+            $this->setting->get('ETSY_CONSUMER_KEY'),
+            $this->setting->get('ETSY_CONSUMER_SECRET'),
+            OAUTH_SIG_METHOD_HMACSHA1,
+            OAUTH_AUTH_TYPE_URI
+        );
+
+        if (\defined('OAUTH_REQENGINE_CURL')) {
+            $this->engine = OAUTH_REQENGINE_CURL;
+            $this->oauth->setRequestEngine(OAUTH_REQENGINE_CURL);
+        } elseif (\defined('OAUTH_REQENGINE_STREAMS')) {
+            $this->engine = OAUTH_REQENGINE_STREAMS;
+            $this->oauth->setRequestEngine(OAUTH_REQENGINE_STREAMS);
+        } else {
+            throw new \Exception('Warning: cURL engine not present on OAuth PECL package: sudo apt-get install libcurl4-dev or sudo yum install curl-devel');
+        }
+
+        $this->oauth->setToken(
+            $this->setting->get('ETSY_ACCESS_TOKEN'),
+            $this->setting->get('ETSY_ACCESS_SECRET')
+        );
+    }
+
+    protected function setOauthClient(): void
+    {
+        require_once(__DIR__ . '/../../../vendor/hatframework/oauth-api/httpclient/http.php');
+        require_once(__DIR__ . '/../../../vendor/hatframework/oauth-api/oauth-api/oauth_client.php');
+
+        $this->oauthClient = new \oauth_client_class();
+        $this->oauthClient->debug = true;
+        $this->oauthClient->debug_http = true;
+        $this->oauthClient->server = 'Etsy';
+        $this->oauthClient->configuration_file = __DIR__ . '/../../../vendor/hatframework/oauth-api/oauth-api/oauth_configuration.json';
+        $this->oauthClient->redirect_uri = 'http://' . $_SERVER['HTTP_HOST'] .
+            dirname(strtok($_SERVER['REQUEST_URI'], '?')) . '/login_with_etsy.php';
+        $this->oauthClient->client_id = $this->setting->get('ETSY_CONSUMER_KEY');
+        $this->oauthClient->client_secret = $this->setting->get('ETSY_CONSUMER_SECRET');
+        $this->oauthClient->access_token = $this->setting->get('ETSY_ACCESS_TOKEN');
+        $this->oauthClient->access_token_secret = $this->setting->get('ETSY_ACCESS_SECRET');
+
+        if (($success = $this->oauthClient->Initialize())) {
+            if (($success = $this->oauthClient->Process())) {
+                if (strlen($this->oauthClient->access_token)) {
+                    $success = $this->oauthClient->CallAPI(
+                        $this->baseUrl . 'users/__SELF__',
+                        'GET', [], ['FailOnAccessError' => true], $user);
+                }
+            }
+            $this->oauthClient->Finalize($success);
+        }
+    }
+
     public function createListingFromItem(Item $item)
     {
         $clothingCategory = Item::findById($item->_('parentId'));
@@ -65,18 +119,18 @@ class EtsyService
             && !empty($clothingCategory->_('etsyTaxonomyId'))
         ) {
             $params = [
-                'title'                => str_replace("'", '', trim($item->_('name'))),
-                'description'          => $this->builDescription($item, Di::getDefault()->get('configuration')->getLanguageShort()),
-                'price'                => $item->_('price_sale'),
+                'title' => str_replace("'", '', trim($item->_('name'))),
+                'description' => $this->builDescription($item, Di::getDefault()->get('configuration')->getLanguageShort()),
+                'price' => $item->_('price_sale'),
                 'shipping_template_id' => $this->setting->get('ETSY_SHIPPING_TEMPLATEID'),
-                'category_id'          => (int)$clothingCategory->_('etsyCategoryId'),
-                'taxonomy_id'          => (int)$clothingCategory->_('etsyTaxonomyId'),
-                'quantity'             => 2,
-                'shop_id'              => $this->setting->get('ETSY_SHOP_ID'),
-                'who_made'             => 'collective',
-                'is_supply'            => true,
-                'when_made'            => '2010_2018',
-                'language'             => Di::getDefault()->get('configuration')->getLanguageShort(),
+                'category_id' => (int)$clothingCategory->_('etsyCategoryId'),
+                'taxonomy_id' => (int)$clothingCategory->_('etsyTaxonomyId'),
+                'quantity' => 2,
+                'shop_id' => $this->setting->get('ETSY_SHOP_ID'),
+                'who_made' => 'collective',
+                'is_supply' => true,
+                'when_made' => '2010_2018',
+                'language' => Di::getDefault()->get('configuration')->getLanguageShort(),
             ];
 
             return $this->fetch('listings', $params);
@@ -85,22 +139,95 @@ class EtsyService
         return false;
     }
 
+    protected function builDescription(Item $item, string $language): string
+    {
+        $description = strip_tags($item->_('introtext', $language));
+
+        if (MongoUtil::isObjectId($item->_('design'))) :
+            $design = Design::findById($item->_('design'));
+            if ($design) :
+                if (!empty($description)) :
+                    $description .= "
+
+";
+                endif;
+                $description .= strip_tags($design->_('introtext', $language));
+            endif;
+        endif;
+
+        if (MongoUtil::isObjectId($item->_('manufacturer'))) :
+            $manufacturer = Item::findById($item->_('manufacturer'));
+            if ($manufacturer) :
+                $description .= str_replace(
+                    ["  ", "  ", "  "],
+                    " ",
+                    $manufacturer->_('name', $language)
+                    . "
+
+" .
+                    strip_tags($manufacturer->_('introtext', $language))
+                );
+            endif;
+        endif;
+
+        return trim($description);
+    }
+
+    protected function fetch(string $apiCall, array $params = [], $method = 'POST')
+    {
+        $options = ['FailOnAccessError' => true];
+        /*if (isset($params['products'])) {
+            $products = $params['products'];
+            unset($params['products']);
+            $params['products'] = json_encode([]);
+            $options['PostValues'] = $params;
+            $params = [];
+
+        }*/
+        $this->oauthClient->CallAPI(
+            $this->baseUrl . $apiCall,
+            $method,
+            $params,
+            $options,
+            $response
+        );
+
+        return $response;
+    }
+
     public function addImageToListing(string $imagePath, int $listingId)
     {
         $mime = mime_content_type($imagePath);
 
-        return $this->fetch_native('listings/'.$listingId.'/images',
-            ['@image' => '@'.$imagePath.';type='.$mime]);
+        return $this->fetch_native('listings/' . $listingId . '/images',
+            ['@image' => '@' . $imagePath . ';type=' . $mime]);
+    }
+
+    protected function fetch_native(string $apiCall, array $params = [], $method = 'POST')
+    {
+        try {
+            $response = $this->oauth->fetch(
+                $this->baseUrl . $apiCall,
+                $params,
+                $method,
+                []
+            );
+        } catch (\OAuthException $e) {
+            echo $e->getMessage();
+            die();
+        }
+
+        return $response;
     }
 
     public function getListing(int $listingId)
     {
-        return $this->fetch('listings/'.$listingId, [], OAUTH_HTTP_METHOD_GET);
+        return $this->fetch('listings/' . $listingId, [], OAUTH_HTTP_METHOD_GET);
     }
 
     public function getInventory(int $listingId)
     {
-        return $this->fetch('listings/'.$listingId.'/inventory', [], OAUTH_HTTP_METHOD_GET);
+        return $this->fetch('listings/' . $listingId . '/inventory', [], OAUTH_HTTP_METHOD_GET);
     }
 
     public function updateInventoryFromItem(Item $item)
@@ -160,10 +287,10 @@ class EtsyService
             endforeach;
 
             if ($stockTotal > 0) :
-                return $this->fetch('listings/'.$item->_('etsyId').'/inventory',
+                return $this->fetch('listings/' . $item->_('etsyId') . '/inventory',
                     [
-                        'products'             => json_encode($products),
-                        'quantity_on_property' => '200,'.(int)$clothingCategory->_('etsySizeId'),
+                        'products' => json_encode($products),
+                        'quantity_on_property' => '200,' . (int)$clothingCategory->_('etsySizeId'),
                     ],
                     'PUT'
                 );
@@ -173,112 +300,52 @@ class EtsyService
         return null;
     }
 
-    public function getListingTranslation(int $listingId, string $language)
+    protected function inventoryItemFactory(
+        int $colorId,
+        int $sizeId,
+        int $quantity,
+        float $price,
+        int $sizePropertyId
+    )
     {
-        return $this->fetch('listings/'.$listingId.'/Translations/'.$language, [], OAUTH_HTTP_METHOD_GET);
-    }
-
-    public function updateListingTranslation( Item $item, string $language)
-    {
-        $clothingCategory = Item::findById($item->_('parentId'));
-
-        $params = [
-            'listing_id'  => $item->_('etsyId'),
-            'language'    => $language,
-            'title'       => $item->_('name', $language),
-            'description' => $this->builDescription($item, $language),
-            'tags'        => $clothingCategory->_('etsyTags', $language),
-        ];
-
-        return $this->fetch(
-            'listings/'.$item->_('etsyId').'/Translations/'.$language,
-            $params,
-            OAUTH_HTTP_METHOD_PUT
-        );
-    }
-
-    protected function fetch(string $apiCall, array $params = [], $method = 'POST')
-    {
-        $options = ['FailOnAccessError' => true];
-        /*if (isset($params['products'])) {
-            $products = $params['products'];
-            unset($params['products']);
-            $params['products'] = json_encode([]);
-            $options['PostValues'] = $params;
-            $params = [];
-
-        }*/
-        $this->oauthClient->CallAPI(
-            $this->baseUrl.$apiCall,
-            $method,
-            $params,
-            $options,
-            $response
-        );
-
-        return $response;
-    }
-
-    protected function fetch_native(string $apiCall, array $params = [], $method = 'POST')
-    {
-        try {
-            $response = $this->oauth->fetch(
-                $this->baseUrl.$apiCall,
-                $params,
-                $method,
-                []
-            );
-        } catch (\OAuthException $e) {
-            echo $e->getMessage();
-            die();
-        }
-
-        return $response;
-    }
-
-    protected function builDescription(Item $item, string $language): string
-    {
-        $description = strip_tags($item->_('introtext', $language));
-
-        if (MongoUtil::isObjectId($item->_('design'))) :
-            $design = Design::findById($item->_('design'));
-            if ($design) :
-                if (!empty($description)) :
-                    $description .= "
-
-";
-                endif;
-                $description .= strip_tags($design->_('introtext', $language));
-            endif;
+        $enabled = '1';
+        if ($quantity < 1) :
+            $enabled = '0';
+        elseif ($quantity > 10) :
+            $quantity = 10;
         endif;
 
-        if (MongoUtil::isObjectId($item->_('manufacturer'))) :
-            $manufacturer = Item::findById($item->_('manufacturer'));
-            if ($manufacturer) :
-                $description .= str_replace(
-                    ["  ", "  ", "  "],
-                    " ",
-                    $manufacturer->_('name', $language)
-                    ."
+        /*unserialize('O:8:"stdClass":5:{s:10:"product_id";i:2519322786;s:3:"sku";s:0:"";s:15:"property_values";a:2:{i:0;O:8:"stdClass":6:{s:11:"property_id";i:200;s:13:"property_name";s:13:"Primary color";s:8:"scale_id";N;s:10:"scale_name";N;s:9:"value_ids";a:1:{i:0;i:1;}s:6:"values";a:1:{i:0;s:5:"Black";}}i:1;O:8:"stdClass":6:{s:11:"property_id";i:62809790395;s:13:"property_name";s:4:"Size";s:8:"scale_id";i:42;s:10:"scale_name";s:11:"Letter size";s:9:"value_ids";a:1:{i:0;i:2019;}s:6:"values";a:1:{i:0;s:1:"L";}}}s:9:"offerings";a:1:{i:0;O:8:"stdClass":5:{s:11:"offering_id";i:2376563313;s:5:"price";O:8:"stdClass":6:{s:6:"amount";i:2000;s:7:"divisor";i:100;s:13:"currency_code";s:3:"EUR";s:24:"currency_formatted_short";s:8:"€20.00";s:23:"currency_formatted_long";s:12:"€20.00 EUR";s:22:"currency_formatted_raw";s:5:"20.00";}s:8:"quantity";i:2;s:10:"is_enabled";i:1;s:10:"is_deleted";i:0;}}s:10:"is_deleted";i:0;}');*/
 
-".
-                    strip_tags($manufacturer->_('introtext', $language))
-                );
-            endif;
-        endif;
+        $inventoryItem = unserialize('O:8:"stdClass":5:{s:10:"product_id";i:2519322786;s:3:"sku";s:0:"";s:15:"property_values";a:2:{i:0;O:8:"stdClass":6:{s:11:"property_id";i:200;s:13:"property_name";s:13:"Primary color";s:8:"scale_id";N;s:10:"scale_name";N;s:9:"value_ids";a:1:{i:0;i:1;}s:6:"values";a:1:{i:0;s:5:"Black";}}i:1;O:8:"stdClass":6:{s:11:"property_id";i:62809790395;s:13:"property_name";s:4:"Size";s:8:"scale_id";i:42;s:10:"scale_name";s:11:"Letter size";s:9:"value_ids";a:1:{i:0;i:2019;}s:6:"values";a:1:{i:0;s:1:"L";}}}s:9:"offerings";a:1:{i:0;O:8:"stdClass":5:{s:11:"offering_id";i:2376563313;s:5:"price";O:8:"stdClass":6:{s:6:"amount";i:2000;s:7:"divisor";i:100;s:13:"currency_code";s:3:"EUR";s:24:"currency_formatted_short";s:8:"€20.00";s:23:"currency_formatted_long";s:12:"€20.00 EUR";s:22:"currency_formatted_raw";s:5:"20.00";}s:8:"quantity";i:2;s:10:"is_enabled";i:1;s:10:"is_deleted";i:0;}}s:10:"is_deleted";i:0;}',
+            [\stdClass::class]);
+        //2
+//25
+        unset(
+            $inventoryItem->product_id,
+            $inventoryItem->sku,
+            $inventoryItem->property_values[0]->scale_id,
+            $inventoryItem->property_values[0]->scale_name,
+            $inventoryItem->property_values[0]->property_name,
+            $inventoryItem->property_values[0]->values,
+            $inventoryItem->property_values[1]->scale_id,
+            $inventoryItem->property_values[1]->scale_name,
+            $inventoryItem->property_values[1]->property_name,
+            $inventoryItem->property_values[1]->values,
+            $inventoryItem->offerings[0]->is_deleted,
+            $inventoryItem->offerings[0]->offering_id,
+            $inventoryItem->is_deleted
+        );
 
-        return trim($description);
-    }
+        $inventoryItem->property_values[0]->value_ids[0] = $colorId;
+        $inventoryItem->property_values[1]->value_ids[0] = $sizeId;
+        $inventoryItem->property_values[1]->property_id = $sizePropertyId;
 
-    protected function getSizeId(string $size, Item $item): int
-    {
-        if (isset($item->_('etsySizeMapper')[$size]) && !empty($item->_('etsySizeMapper')[$size])) {
-            return (int)$item->_('etsySizeMapper')[$size];
-        }
+        $inventoryItem->offerings[0]->price = $price;
+        $inventoryItem->offerings[0]->quantity = $quantity;
+        $inventoryItem->offerings[0]->is_enabled = $enabled;
 
-        echo 'Maat onbekend : '.$size;
-        mail('jasper@craftbeershirts.net', 'Etsy maat onbekend : '.$size, $item->_('name').' : '.$item->_('slug'));
-        die();
+        return $inventoryItem;
     }
 
     protected function getColorId(string $color): int
@@ -410,10 +477,11 @@ class EtsyService
             case 'PINK':
                 return 7;
         endswitch;
-        echo 'Kleur onbekend : '.$color;
-        mail('jasper@craftbeershirts.net', 'Etsy kleur onbekend : '.$color, '');
+        echo 'Kleur onbekend : ' . $color;
+        mail('jasper@craftbeershirts.net', 'Etsy kleur onbekend : ' . $color, '');
         die();
     }
+
     /*
  "1213" => "Beige"
  "1216" => "Brons"
@@ -425,105 +493,15 @@ class EtsyService
  "1219" => "Transparant"
  "1215" => "Zilver */
 
-    protected function inventoryItemFactory(
-        int $colorId,
-        int $sizeId,
-        int $quantity,
-        float $price,
-        int $sizePropertyId
-    ) {
-        $enabled = '1';
-        if ($quantity < 1) :
-            $enabled = '0';
-        elseif ($quantity > 10) :
-            $quantity = 10;
-        endif;
-
-        /*unserialize('O:8:"stdClass":5:{s:10:"product_id";i:2519322786;s:3:"sku";s:0:"";s:15:"property_values";a:2:{i:0;O:8:"stdClass":6:{s:11:"property_id";i:200;s:13:"property_name";s:13:"Primary color";s:8:"scale_id";N;s:10:"scale_name";N;s:9:"value_ids";a:1:{i:0;i:1;}s:6:"values";a:1:{i:0;s:5:"Black";}}i:1;O:8:"stdClass":6:{s:11:"property_id";i:62809790395;s:13:"property_name";s:4:"Size";s:8:"scale_id";i:42;s:10:"scale_name";s:11:"Letter size";s:9:"value_ids";a:1:{i:0;i:2019;}s:6:"values";a:1:{i:0;s:1:"L";}}}s:9:"offerings";a:1:{i:0;O:8:"stdClass":5:{s:11:"offering_id";i:2376563313;s:5:"price";O:8:"stdClass":6:{s:6:"amount";i:2000;s:7:"divisor";i:100;s:13:"currency_code";s:3:"EUR";s:24:"currency_formatted_short";s:8:"€20.00";s:23:"currency_formatted_long";s:12:"€20.00 EUR";s:22:"currency_formatted_raw";s:5:"20.00";}s:8:"quantity";i:2;s:10:"is_enabled";i:1;s:10:"is_deleted";i:0;}}s:10:"is_deleted";i:0;}');*/
-
-        $inventoryItem = unserialize('O:8:"stdClass":5:{s:10:"product_id";i:2519322786;s:3:"sku";s:0:"";s:15:"property_values";a:2:{i:0;O:8:"stdClass":6:{s:11:"property_id";i:200;s:13:"property_name";s:13:"Primary color";s:8:"scale_id";N;s:10:"scale_name";N;s:9:"value_ids";a:1:{i:0;i:1;}s:6:"values";a:1:{i:0;s:5:"Black";}}i:1;O:8:"stdClass":6:{s:11:"property_id";i:62809790395;s:13:"property_name";s:4:"Size";s:8:"scale_id";i:42;s:10:"scale_name";s:11:"Letter size";s:9:"value_ids";a:1:{i:0;i:2019;}s:6:"values";a:1:{i:0;s:1:"L";}}}s:9:"offerings";a:1:{i:0;O:8:"stdClass":5:{s:11:"offering_id";i:2376563313;s:5:"price";O:8:"stdClass":6:{s:6:"amount";i:2000;s:7:"divisor";i:100;s:13:"currency_code";s:3:"EUR";s:24:"currency_formatted_short";s:8:"€20.00";s:23:"currency_formatted_long";s:12:"€20.00 EUR";s:22:"currency_formatted_raw";s:5:"20.00";}s:8:"quantity";i:2;s:10:"is_enabled";i:1;s:10:"is_deleted";i:0;}}s:10:"is_deleted";i:0;}',
-            [\stdClass::class]);
-        //2
-//25
-        unset(
-            $inventoryItem->product_id,
-            $inventoryItem->sku,
-            $inventoryItem->property_values[0]->scale_id,
-            $inventoryItem->property_values[0]->scale_name,
-            $inventoryItem->property_values[0]->property_name,
-            $inventoryItem->property_values[0]->values,
-            $inventoryItem->property_values[1]->scale_id,
-            $inventoryItem->property_values[1]->scale_name,
-            $inventoryItem->property_values[1]->property_name,
-            $inventoryItem->property_values[1]->values,
-            $inventoryItem->offerings[0]->is_deleted,
-            $inventoryItem->offerings[0]->offering_id,
-            $inventoryItem->is_deleted
-        );
-
-        $inventoryItem->property_values[0]->value_ids[0] = $colorId;
-        $inventoryItem->property_values[1]->value_ids[0] = $sizeId;
-        $inventoryItem->property_values[1]->property_id = $sizePropertyId;
-
-        $inventoryItem->offerings[0]->price = $price;
-        $inventoryItem->offerings[0]->quantity = $quantity;
-        $inventoryItem->offerings[0]->is_enabled = $enabled;
-
-        return $inventoryItem;
-    }
-
-    protected function setOauth(): void
+    protected function getSizeId(string $size, Item $item): int
     {
-        $this->oauth = new \OAuth(
-            $this->setting->get('ETSY_CONSUMER_KEY'),
-            $this->setting->get('ETSY_CONSUMER_SECRET'),
-            OAUTH_SIG_METHOD_HMACSHA1,
-            OAUTH_AUTH_TYPE_URI
-        );
-
-        if (\defined('OAUTH_REQENGINE_CURL')) {
-            $this->engine = OAUTH_REQENGINE_CURL;
-            $this->oauth->setRequestEngine(OAUTH_REQENGINE_CURL);
-        } elseif (\defined('OAUTH_REQENGINE_STREAMS')) {
-            $this->engine = OAUTH_REQENGINE_STREAMS;
-            $this->oauth->setRequestEngine(OAUTH_REQENGINE_STREAMS);
-        } else {
-            throw new \Exception('Warning: cURL engine not present on OAuth PECL package: sudo apt-get install libcurl4-dev or sudo yum install curl-devel');
+        if (isset($item->_('etsySizeMapper')[$size]) && !empty($item->_('etsySizeMapper')[$size])) {
+            return (int)$item->_('etsySizeMapper')[$size];
         }
 
-        $this->oauth->setToken(
-            $this->setting->get('ETSY_ACCESS_TOKEN'),
-            $this->setting->get('ETSY_ACCESS_SECRET')
-        );
-    }
-
-    protected function setOauthClient(): void
-    {
-        require_once(__DIR__.'/../../../vendor/hatframework/oauth-api/httpclient/http.php');
-        require_once(__DIR__.'/../../../vendor/hatframework/oauth-api/oauth-api/oauth_client.php');
-
-        $this->oauthClient = new \oauth_client_class();
-        $this->oauthClient->debug = true;
-        $this->oauthClient->debug_http = true;
-        $this->oauthClient->server = 'Etsy';
-        $this->oauthClient->configuration_file = __DIR__.'/../../../vendor/hatframework/oauth-api/oauth-api/oauth_configuration.json';
-        $this->oauthClient->redirect_uri = 'http://'.$_SERVER['HTTP_HOST'].
-            dirname(strtok($_SERVER['REQUEST_URI'], '?')).'/login_with_etsy.php';
-        $this->oauthClient->client_id = $this->setting->get('ETSY_CONSUMER_KEY');
-        $this->oauthClient->client_secret = $this->setting->get('ETSY_CONSUMER_SECRET');
-        $this->oauthClient->access_token = $this->setting->get('ETSY_ACCESS_TOKEN');
-        $this->oauthClient->access_token_secret = $this->setting->get('ETSY_ACCESS_SECRET');
-
-        if (($success = $this->oauthClient->Initialize())) {
-            if (($success = $this->oauthClient->Process())) {
-                if (strlen($this->oauthClient->access_token)) {
-                    $success = $this->oauthClient->CallAPI(
-                        $this->baseUrl.'users/__SELF__',
-                        'GET', [], ['FailOnAccessError' => true], $user);
-                }
-            }
-            $this->oauthClient->Finalize($success);
-        }
+        echo 'Maat onbekend : ' . $size;
+        mail('jasper@craftbeershirts.net', 'Etsy maat onbekend : ' . $size, $item->_('name') . ' : ' . $item->_('slug'));
+        die();
     }
 
     protected function buildBaseSizes(array $variations): array
@@ -536,5 +514,29 @@ class EtsyService
         endforeach;
 
         return $sizes;
+    }
+
+    public function getListingTranslation(int $listingId, string $language)
+    {
+        return $this->fetch('listings/' . $listingId . '/Translations/' . $language, [], OAUTH_HTTP_METHOD_GET);
+    }
+
+    public function updateListingTranslation(Item $item, string $language)
+    {
+        $clothingCategory = Item::findById($item->_('parentId'));
+
+        $params = [
+            'listing_id' => $item->_('etsyId'),
+            'language' => $language,
+            'title' => $item->_('name', $language),
+            'description' => $this->builDescription($item, $language),
+            'tags' => $clothingCategory->_('etsyTags', $language),
+        ];
+
+        return $this->fetch(
+            'listings/' . $item->_('etsyId') . '/Translations/' . $language,
+            $params,
+            OAUTH_HTTP_METHOD_PUT
+        );
     }
 }

@@ -50,7 +50,7 @@ class ListingController extends AbstractAdminController
         ];
 
         $parentItem = Item::findById($item->_('parentId'));
-        echo '<pre>Parsing : '.$parentItem->_('name').' '.$item->_('name').'<br />';
+        echo '<pre>Parsing : ' . $parentItem->_('name') . ' ' . $item->_('name') . '<br />';
 
         if (
             empty($item->_('etsyId'))
@@ -66,7 +66,7 @@ class ListingController extends AbstractAdminController
                 $this->log->write(
                     $item->getId(),
                     Item::class,
-                    'Etsy listing '.$item->_('etsyId').' for <b>'.$item->_('name').'</b> created.'
+                    'Etsy listing ' . $item->_('etsyId') . ' for <b>' . $item->_('name') . '</b> created.'
                 );
 
                 if ($item->_('variations')) :
@@ -79,14 +79,14 @@ class ListingController extends AbstractAdminController
                     foreach ($colorImages as $colorImage) :
                         foreach ((array)$colorImage as $image) :
                             $this->etsy->addImageToListing(
-                                $this->config->get('uploadDir').$image,
+                                $this->config->get('uploadDir') . $image,
                                 (int)$item->_('etsyId')
                             );
                         endforeach;
                     endforeach;
                 else :
                     $this->etsy->addImageToListing(
-                        Di::getDefault()->get('config')->get('uploadDir').$item->_('firstImage'),
+                        Di::getDefault()->get('config')->get('uploadDir') . $item->_('firstImage'),
                         (int)$item->_('etsyId')
                     );
                 endif;
@@ -106,13 +106,13 @@ class ListingController extends AbstractAdminController
                 $this->log->write(
                     $item->getId(),
                     Item::class,
-                    'Etsy listing '.$item->_('etsyId').' for <b>'.$item->_('name').'</b> stock updated.'
+                    'Etsy listing ' . $item->_('etsyId') . ' for <b>' . $item->_('name') . '</b> stock updated.'
                 );
             endif;
             var_dump($return);
 
             foreach (Language::findAll() as $language) :
-                if(isset($etsyLanguages[$language->_('short')])) :
+                if (isset($etsyLanguages[$language->_('short')])) :
                     $this->etsy->updateListingTranslation($item, $language->_('short'));
                 endif;
             endforeach;
