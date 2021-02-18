@@ -2,9 +2,9 @@
 
 namespace VitesseCms\Etsy\Listeners;
 
+use Phalcon\Events\Event;
 use VitesseCms\Admin\Models\AdminMenu;
 use VitesseCms\Admin\Models\AdminMenuNavBarChildren;
-use Phalcon\Events\Event;
 
 class AdminMenuListener
 {

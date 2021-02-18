@@ -2,12 +2,12 @@
 
 namespace VitesseCms\Etsy\Services;
 
+use Phalcon\Di;
+use Phalcon\Exception;
 use VitesseCms\Content\Models\Item;
 use VitesseCms\Database\Utils\MongoUtil;
 use VitesseCms\Setting\Services\SettingService;
 use VitesseCms\Spreadshirt\Models\Design;
-use Phalcon\Di;
-use Phalcon\Exception;
 
 class EtsyService
 {

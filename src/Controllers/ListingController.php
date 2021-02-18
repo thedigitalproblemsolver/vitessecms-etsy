@@ -2,8 +2,8 @@
 
 namespace VitesseCms\Etsy\Controllers;
 
-use VitesseCms\Content\Models\Item;
 use VitesseCms\Admin\AbstractAdminController;
+use VitesseCms\Content\Models\Item;
 use VitesseCms\Export\Helpers\EtsyExportHelper;
 use VitesseCms\Export\Models\ExportType;
 use VitesseCms\Language\Models\Language;
