@@ -2,9 +2,9 @@
 
 namespace VitesseCms\Etsy;
 
+use Phalcon\DiInterface;
 use VitesseCms\Core\AbstractModule;
 use VitesseCms\Etsy\Services\EtsyService;
-use Phalcon\DiInterface;
 
 class Module extends AbstractModule
 {
