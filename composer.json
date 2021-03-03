@@ -22,6 +22,6 @@
     "vitessecms/language": "~0.0.2",
     "vitessecms/setting": "~0.0.7",
     "vitessecms/core": "~0.0.7",
-    "vitessecms/form": "~0.0.9"
+    "vitessecms/form": "~0.0.10"
   }
 }
