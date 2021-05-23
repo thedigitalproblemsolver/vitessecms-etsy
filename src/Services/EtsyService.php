@@ -2,17 +2,23 @@
 
 namespace VitesseCms\Etsy\Services;
 
+use OAuth;
+use oauth_client_class;
+use OAuthException;
 use Phalcon\Di;
 use Phalcon\Exception;
+use stdClass;
 use VitesseCms\Content\Models\Item;
 use VitesseCms\Database\Utils\MongoUtil;
 use VitesseCms\Setting\Services\SettingService;
 use VitesseCms\Spreadshirt\Models\Design;
+use function count;
+use function defined;
 
 class EtsyService
 {
     /**
-     * @var \OAuth
+     * @var OAuth
      */
     protected $oauth;
 
@@ -32,7 +38,7 @@ class EtsyService
     protected $setting;
 
     /**
-     * @var \oauth_client_class
+     * @var oauth_client_class
      */
     protected $oauthClient;
 
@@ -58,17 +64,17 @@ class EtsyService
 
     protected function setOauth(): void
     {
-        $this->oauth = new \OAuth(
+        $this->oauth = new OAuth(
             $this->setting->get('ETSY_CONSUMER_KEY'),
             $this->setting->get('ETSY_CONSUMER_SECRET'),
             OAUTH_SIG_METHOD_HMACSHA1,
             OAUTH_AUTH_TYPE_URI
         );
 
-        if (\defined('OAUTH_REQENGINE_CURL')) {
+        if (defined('OAUTH_REQENGINE_CURL')) {
             $this->engine = OAUTH_REQENGINE_CURL;
             $this->oauth->setRequestEngine(OAUTH_REQENGINE_CURL);
-        } elseif (\defined('OAUTH_REQENGINE_STREAMS')) {
+        } elseif (defined('OAUTH_REQENGINE_STREAMS')) {
             $this->engine = OAUTH_REQENGINE_STREAMS;
             $this->oauth->setRequestEngine(OAUTH_REQENGINE_STREAMS);
         } else {
@@ -86,7 +92,7 @@ class EtsyService
         require_once(__DIR__ . '/../../../vendor/hatframework/oauth-api/httpclient/http.php');
         require_once(__DIR__ . '/../../../vendor/hatframework/oauth-api/oauth-api/oauth_client.php');
 
-        $this->oauthClient = new \oauth_client_class();
+        $this->oauthClient = new oauth_client_class();
         $this->oauthClient->debug = true;
         $this->oauthClient->debug_http = true;
         $this->oauthClient->server = 'Etsy';
@@ -212,7 +218,7 @@ class EtsyService
                 $method,
                 []
             );
-        } catch (\OAuthException $e) {
+        } catch (OAuthException $e) {
             echo $e->getMessage();
             die();
         }
@@ -246,7 +252,7 @@ class EtsyService
                 $skuParts = array_reverse(explode('_', $variation['sku']));
                 unset($skuParts[0]);
                 $color = implode('_', array_reverse($skuParts));
-                if (\count($colorsToParse) < 3) :
+                if (count($colorsToParse) < 3) :
                     $colorsToParse[$color] = '';
                 endif;
             endforeach;
@@ -318,7 +324,7 @@ class EtsyService
         /*unserialize('O:8:"stdClass":5:{s:10:"product_id";i:2519322786;s:3:"sku";s:0:"";s:15:"property_values";a:2:{i:0;O:8:"stdClass":6:{s:11:"property_id";i:200;s:13:"property_name";s:13:"Primary color";s:8:"scale_id";N;s:10:"scale_name";N;s:9:"value_ids";a:1:{i:0;i:1;}s:6:"values";a:1:{i:0;s:5:"Black";}}i:1;O:8:"stdClass":6:{s:11:"property_id";i:62809790395;s:13:"property_name";s:4:"Size";s:8:"scale_id";i:42;s:10:"scale_name";s:11:"Letter size";s:9:"value_ids";a:1:{i:0;i:2019;}s:6:"values";a:1:{i:0;s:1:"L";}}}s:9:"offerings";a:1:{i:0;O:8:"stdClass":5:{s:11:"offering_id";i:2376563313;s:5:"price";O:8:"stdClass":6:{s:6:"amount";i:2000;s:7:"divisor";i:100;s:13:"currency_code";s:3:"EUR";s:24:"currency_formatted_short";s:8:"€20.00";s:23:"currency_formatted_long";s:12:"€20.00 EUR";s:22:"currency_formatted_raw";s:5:"20.00";}s:8:"quantity";i:2;s:10:"is_enabled";i:1;s:10:"is_deleted";i:0;}}s:10:"is_deleted";i:0;}');*/
 
         $inventoryItem = unserialize('O:8:"stdClass":5:{s:10:"product_id";i:2519322786;s:3:"sku";s:0:"";s:15:"property_values";a:2:{i:0;O:8:"stdClass":6:{s:11:"property_id";i:200;s:13:"property_name";s:13:"Primary color";s:8:"scale_id";N;s:10:"scale_name";N;s:9:"value_ids";a:1:{i:0;i:1;}s:6:"values";a:1:{i:0;s:5:"Black";}}i:1;O:8:"stdClass":6:{s:11:"property_id";i:62809790395;s:13:"property_name";s:4:"Size";s:8:"scale_id";i:42;s:10:"scale_name";s:11:"Letter size";s:9:"value_ids";a:1:{i:0;i:2019;}s:6:"values";a:1:{i:0;s:1:"L";}}}s:9:"offerings";a:1:{i:0;O:8:"stdClass":5:{s:11:"offering_id";i:2376563313;s:5:"price";O:8:"stdClass":6:{s:6:"amount";i:2000;s:7:"divisor";i:100;s:13:"currency_code";s:3:"EUR";s:24:"currency_formatted_short";s:8:"€20.00";s:23:"currency_formatted_long";s:12:"€20.00 EUR";s:22:"currency_formatted_raw";s:5:"20.00";}s:8:"quantity";i:2;s:10:"is_enabled";i:1;s:10:"is_deleted";i:0;}}s:10:"is_deleted";i:0;}',
-            [\stdClass::class]);
+            [stdClass::class]);
         //2
 //25
         unset(
