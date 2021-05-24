@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-namespace VitesseCms\Etsy\Listeners;
+namespace VitesseCms\Etsy\Listeners\Admin;
 
 use Phalcon\Events\Event;
 use VitesseCms\Admin\Models\AdminMenu;

@@ -3,6 +3,7 @@
 namespace VitesseCms\Etsy\Listeners;
 
 use Phalcon\Events\Manager;
+use VitesseCms\Etsy\Listeners\Admin\AdminMenuListener;
 
 class InitiateAdminListeners
 {
