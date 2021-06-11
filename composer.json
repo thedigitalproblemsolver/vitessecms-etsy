@@ -21,7 +21,7 @@
     "hatframework/oauth-api": "^0.0.1",
     "vitessecms/language": "~0.2.2",
     "vitessecms/setting": "~0.2.2",
-    "vitessecms/core": "~0.2.8",
+    "vitessecms/core": "~0.2.9",
     "vitessecms/form": "~0.2.7",
     "vitessecms/admin": "~0.2.4"
   }
