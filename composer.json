@@ -20,9 +20,9 @@
   "require": {
     "hatframework/oauth-api": "^0.0.1",
     "vitessecms/language": "~0.2.4",
-    "vitessecms/setting": "~0.2.5",
-    "vitessecms/core": "~0.2.22",
-    "vitessecms/form": "~0.2.9",
+    "vitessecms/setting": "~0.2.6",
+    "vitessecms/core": "~0.2.23",
+    "vitessecms/form": "~0.2.10",
     "vitessecms/admin": "~0.2.9"
   }
 }
