@@ -5,7 +5,7 @@ namespace VitesseCms\Etsy\Services;
 use OAuth;
 use oauth_client_class;
 use OAuthException;
-use Phalcon\Di;
+use Phalcon\Di\Di;
 use Phalcon\Exception;
 use stdClass;
 use VitesseCms\Content\Models\Item;
@@ -62,60 +62,6 @@ class EtsyService
         }
     }
 
-    protected function setOauth(): void
-    {
-        $this->oauth = new OAuth(
-            $this->setting->get('ETSY_CONSUMER_KEY'),
-            $this->setting->get('ETSY_CONSUMER_SECRET'),
-            OAUTH_SIG_METHOD_HMACSHA1,
-            OAUTH_AUTH_TYPE_URI
-        );
-
-        if (defined('OAUTH_REQENGINE_CURL')) {
-            $this->engine = OAUTH_REQENGINE_CURL;
-            $this->oauth->setRequestEngine(OAUTH_REQENGINE_CURL);
-        } elseif (defined('OAUTH_REQENGINE_STREAMS')) {
-            $this->engine = OAUTH_REQENGINE_STREAMS;
-            $this->oauth->setRequestEngine(OAUTH_REQENGINE_STREAMS);
-        } else {
-            throw new \Exception('Warning: cURL engine not present on OAuth PECL package: sudo apt-get install libcurl4-dev or sudo yum install curl-devel');
-        }
-
-        $this->oauth->setToken(
-            $this->setting->get('ETSY_ACCESS_TOKEN'),
-            $this->setting->get('ETSY_ACCESS_SECRET')
-        );
-    }
-
-    protected function setOauthClient(): void
-    {
-        require_once(__DIR__ . '/../../../vendor/hatframework/oauth-api/httpclient/http.php');
-        require_once(__DIR__ . '/../../../vendor/hatframework/oauth-api/oauth-api/oauth_client.php');
-
-        $this->oauthClient = new oauth_client_class();
-        $this->oauthClient->debug = true;
-        $this->oauthClient->debug_http = true;
-        $this->oauthClient->server = 'Etsy';
-        $this->oauthClient->configuration_file = __DIR__ . '/../../../vendor/hatframework/oauth-api/oauth-api/oauth_configuration.json';
-        $this->oauthClient->redirect_uri = 'http://' . $_SERVER['HTTP_HOST'] .
-            dirname(strtok($_SERVER['REQUEST_URI'], '?')) . '/login_with_etsy.php';
-        $this->oauthClient->client_id = $this->setting->get('ETSY_CONSUMER_KEY');
-        $this->oauthClient->client_secret = $this->setting->get('ETSY_CONSUMER_SECRET');
-        $this->oauthClient->access_token = $this->setting->get('ETSY_ACCESS_TOKEN');
-        $this->oauthClient->access_token_secret = $this->setting->get('ETSY_ACCESS_SECRET');
-
-        if (($success = $this->oauthClient->Initialize())) {
-            if (($success = $this->oauthClient->Process())) {
-                if (strlen($this->oauthClient->access_token)) {
-                    $success = $this->oauthClient->CallAPI(
-                        $this->baseUrl . 'users/__SELF__',
-                        'GET', [], ['FailOnAccessError' => true], $user);
-                }
-            }
-            $this->oauthClient->Finalize($success);
-        }
-    }
-
     public function createListingFromItem(Item $item)
     {
         $clothingCategory = Item::findById($item->_('parentId'));
@@ -145,85 +91,12 @@ class EtsyService
         return false;
     }
 
-    protected function builDescription(Item $item, string $language): string
-    {
-        $description = strip_tags($item->_('introtext', $language));
-
-        if (MongoUtil::isObjectId($item->_('design'))) :
-            $design = Design::findById($item->_('design'));
-            if ($design) :
-                if (!empty($description)) :
-                    $description .= "
-
-";
-                endif;
-                $description .= strip_tags($design->_('introtext', $language));
-            endif;
-        endif;
-
-        if (MongoUtil::isObjectId($item->_('manufacturer'))) :
-            $manufacturer = Item::findById($item->_('manufacturer'));
-            if ($manufacturer) :
-                $description .= str_replace(
-                    ["  ", "  ", "  "],
-                    " ",
-                    $manufacturer->_('name', $language)
-                    . "
-
-" .
-                    strip_tags($manufacturer->_('introtext', $language))
-                );
-            endif;
-        endif;
-
-        return trim($description);
-    }
-
-    protected function fetch(string $apiCall, array $params = [], $method = 'POST')
-    {
-        $options = ['FailOnAccessError' => true];
-        /*if (isset($params['products'])) {
-            $products = $params['products'];
-            unset($params['products']);
-            $params['products'] = json_encode([]);
-            $options['PostValues'] = $params;
-            $params = [];
-
-        }*/
-        $this->oauthClient->CallAPI(
-            $this->baseUrl . $apiCall,
-            $method,
-            $params,
-            $options,
-            $response
-        );
-
-        return $response;
-    }
-
     public function addImageToListing(string $imagePath, int $listingId)
     {
         $mime = mime_content_type($imagePath);
 
         return $this->fetch_native('listings/' . $listingId . '/images',
             ['@image' => '@' . $imagePath . ';type=' . $mime]);
-    }
-
-    protected function fetch_native(string $apiCall, array $params = [], $method = 'POST')
-    {
-        try {
-            $response = $this->oauth->fetch(
-                $this->baseUrl . $apiCall,
-                $params,
-                $method,
-                []
-            );
-        } catch (OAuthException $e) {
-            echo $e->getMessage();
-            die();
-        }
-
-        return $response;
     }
 
     public function getListing(int $listingId)
@@ -306,12 +179,174 @@ class EtsyService
         return null;
     }
 
+    public function getListingTranslation(int $listingId, string $language)
+    {
+        return $this->fetch('listings/' . $listingId . '/Translations/' . $language, [], OAUTH_HTTP_METHOD_GET);
+    }
+
+    public function updateListingTranslation(Item $item, string $language)
+    {
+        $clothingCategory = Item::findById($item->_('parentId'));
+
+        $params = [
+            'listing_id' => $item->_('etsyId'),
+            'language' => $language,
+            'title' => $item->_('name', $language),
+            'description' => $this->builDescription($item, $language),
+            'tags' => $clothingCategory->_('etsyTags', $language),
+        ];
+
+        return $this->fetch(
+            'listings/' . $item->_('etsyId') . '/Translations/' . $language,
+            $params,
+            OAUTH_HTTP_METHOD_PUT
+        );
+    }
+
+    protected function setOauth(): void
+    {
+        $this->oauth = new OAuth(
+            $this->setting->get('ETSY_CONSUMER_KEY'),
+            $this->setting->get('ETSY_CONSUMER_SECRET'),
+            OAUTH_SIG_METHOD_HMACSHA1,
+            OAUTH_AUTH_TYPE_URI
+        );
+
+        if (defined('OAUTH_REQENGINE_CURL')) {
+            $this->engine = OAUTH_REQENGINE_CURL;
+            $this->oauth->setRequestEngine(OAUTH_REQENGINE_CURL);
+        } elseif (defined('OAUTH_REQENGINE_STREAMS')) {
+            $this->engine = OAUTH_REQENGINE_STREAMS;
+            $this->oauth->setRequestEngine(OAUTH_REQENGINE_STREAMS);
+        } else {
+            throw new \Exception('Warning: cURL engine not present on OAuth PECL package: sudo apt-get install libcurl4-dev or sudo yum install curl-devel');
+        }
+
+        $this->oauth->setToken(
+            $this->setting->get('ETSY_ACCESS_TOKEN'),
+            $this->setting->get('ETSY_ACCESS_SECRET')
+        );
+    }
+
+    protected function setOauthClient(): void
+    {
+        require_once(__DIR__ . '/../../../vendor/hatframework/oauth-api/httpclient/http.php');
+        require_once(__DIR__ . '/../../../vendor/hatframework/oauth-api/oauth-api/oauth_client.php');
+
+        $this->oauthClient = new oauth_client_class();
+        $this->oauthClient->debug = true;
+        $this->oauthClient->debug_http = true;
+        $this->oauthClient->server = 'Etsy';
+        $this->oauthClient->configuration_file = __DIR__ . '/../../../vendor/hatframework/oauth-api/oauth-api/oauth_configuration.json';
+        $this->oauthClient->redirect_uri = 'http://' . $_SERVER['HTTP_HOST'] .
+            dirname(strtok($_SERVER['REQUEST_URI'], '?')) . '/login_with_etsy.php';
+        $this->oauthClient->client_id = $this->setting->get('ETSY_CONSUMER_KEY');
+        $this->oauthClient->client_secret = $this->setting->get('ETSY_CONSUMER_SECRET');
+        $this->oauthClient->access_token = $this->setting->get('ETSY_ACCESS_TOKEN');
+        $this->oauthClient->access_token_secret = $this->setting->get('ETSY_ACCESS_SECRET');
+
+        if (($success = $this->oauthClient->Initialize())) {
+            if (($success = $this->oauthClient->Process())) {
+                if (strlen($this->oauthClient->access_token)) {
+                    $success = $this->oauthClient->CallAPI(
+                        $this->baseUrl . 'users/__SELF__',
+                        'GET', [], ['FailOnAccessError' => true], $user);
+                }
+            }
+            $this->oauthClient->Finalize($success);
+        }
+    }
+
+    protected function builDescription(Item $item, string $language): string
+    {
+        $description = strip_tags($item->_('introtext', $language));
+
+        if (MongoUtil::isObjectId($item->_('design'))) :
+            $design = Design::findById($item->_('design'));
+            if ($design) :
+                if (!empty($description)) :
+                    $description .= "
+
+";
+                endif;
+                $description .= strip_tags($design->_('introtext', $language));
+            endif;
+        endif;
+
+        if (MongoUtil::isObjectId($item->_('manufacturer'))) :
+            $manufacturer = Item::findById($item->_('manufacturer'));
+            if ($manufacturer) :
+                $description .= str_replace(
+                    ["  ", "  ", "  "],
+                    " ",
+                    $manufacturer->_('name', $language)
+                    . "
+
+" .
+                    strip_tags($manufacturer->_('introtext', $language))
+                );
+            endif;
+        endif;
+
+        return trim($description);
+    }
+
+    protected function fetch(string $apiCall, array $params = [], $method = 'POST')
+    {
+        $options = ['FailOnAccessError' => true];
+        /*if (isset($params['products'])) {
+            $products = $params['products'];
+            unset($params['products']);
+            $params['products'] = json_encode([]);
+            $options['PostValues'] = $params;
+            $params = [];
+
+        }*/
+        $this->oauthClient->CallAPI(
+            $this->baseUrl . $apiCall,
+            $method,
+            $params,
+            $options,
+            $response
+        );
+
+        return $response;
+    }
+
+    protected function fetch_native(string $apiCall, array $params = [], $method = 'POST')
+    {
+        try {
+            $response = $this->oauth->fetch(
+                $this->baseUrl . $apiCall,
+                $params,
+                $method,
+                []
+            );
+        } catch (OAuthException $e) {
+            echo $e->getMessage();
+            die();
+        }
+
+        return $response;
+    }
+
+    /*
+ "1213" => "Beige"
+ "1216" => "Brons"
+ "1214" => "Goud"
+ "1218" => "Koper"
+ "8" => "Paars"
+ "1220" => "Regenboog"
+ "1217" => "Roze goud"
+ "1219" => "Transparant"
+ "1215" => "Zilver */
+
     protected function inventoryItemFactory(
-        int $colorId,
-        int $sizeId,
-        int $quantity,
+        int   $colorId,
+        int   $sizeId,
+        int   $quantity,
         float $price,
-        int $sizePropertyId
+        int   $sizePropertyId
     )
     {
         $enabled = '1';
@@ -488,17 +523,6 @@ class EtsyService
         die();
     }
 
-    /*
- "1213" => "Beige"
- "1216" => "Brons"
- "1214" => "Goud"
- "1218" => "Koper"
- "8" => "Paars"
- "1220" => "Regenboog"
- "1217" => "Roze goud"
- "1219" => "Transparant"
- "1215" => "Zilver */
-
     protected function getSizeId(string $size, Item $item): int
     {
         if (isset($item->_('etsySizeMapper')[$size]) && !empty($item->_('etsySizeMapper')[$size])) {
@@ -520,29 +544,5 @@ class EtsyService
         endforeach;
 
         return $sizes;
-    }
-
-    public function getListingTranslation(int $listingId, string $language)
-    {
-        return $this->fetch('listings/' . $listingId . '/Translations/' . $language, [], OAUTH_HTTP_METHOD_GET);
-    }
-
-    public function updateListingTranslation(Item $item, string $language)
-    {
-        $clothingCategory = Item::findById($item->_('parentId'));
-
-        $params = [
-            'listing_id' => $item->_('etsyId'),
-            'language' => $language,
-            'title' => $item->_('name', $language),
-            'description' => $this->builDescription($item, $language),
-            'tags' => $clothingCategory->_('etsyTags', $language),
-        ];
-
-        return $this->fetch(
-            'listings/' . $item->_('etsyId') . '/Translations/' . $language,
-            $params,
-            OAUTH_HTTP_METHOD_PUT
-        );
     }
 }

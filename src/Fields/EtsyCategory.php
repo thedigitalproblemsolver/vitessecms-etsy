@@ -7,7 +7,7 @@ use VitesseCms\Database\AbstractCollection;
 use VitesseCms\Datafield\AbstractField;
 use VitesseCms\Form\AbstractForm;
 use VitesseCms\Form\Models\Attributes;
-use VitesseCms\Shop\Enums\SizeAndColorEnum;
+use VitesseCms\Shop\Enum\SizeAndColorEnum;
 
 class EtsyCategory extends AbstractField
 {
