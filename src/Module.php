@@ -2,7 +2,7 @@
 
 namespace VitesseCms\Etsy;
 
-use Phalcon\DiInterface;
+use Phalcon\Di\DiInterface;
 use VitesseCms\Core\AbstractModule;
 use VitesseCms\Etsy\Services\EtsyService;
 
@@ -10,7 +10,7 @@ class Module extends AbstractModule
 {
     public function registerServices(DiInterface $di, string $string = null)
     {
-        $di->setShared('etsy', new EtsyService($di->get('setting')));
+        $di->setShared('Etsy', new EtsyService($di->get('setting')));
 
         parent::registerServices($di, 'Etsy');
     }
