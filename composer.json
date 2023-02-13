@@ -23,10 +23,10 @@
   },
   "require": {
     "hatframework/oauth-api": "^0.0.1",
-    "vitessecms/language": "~0.3.3",
+    "vitessecms/language": "~0.3.4",
     "vitessecms/setting": "~0.3.1",
-    "vitessecms/core": "~0.4.1",
-    "vitessecms/form": "~0.4.0",
+    "vitessecms/core": "~0.4.2",
+    "vitessecms/form": "~0.4.1",
     "vitessecms/admin": "~0.3.1"
   }
 }
