@@ -28,6 +28,7 @@
     "vitessecms/core": "~0.4.4",
     "vitessecms/form": "~0.4.3",
     "vitessecms/admin": "~0.3.2",
-    "vitessecms/export": "~0.3.2"
+    "vitessecms/export": "~0.3.2",
+    "vitessecms/database": "~0.3.4"
   }
 }
