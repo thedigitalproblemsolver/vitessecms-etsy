@@ -25,7 +25,7 @@
     "php": ">=8.1",
     "ext-phalcon": "5.1.4",
     "hatframework/oauth-api": "^0.0.1",
-    "vitessecms/language": "^1.0.0",
+    "vitessecms/language": "^1.0.1",
     "vitessecms/setting": "^1.0.1",
     "vitessecms/core": "^1.2.0",
     "vitessecms/form": "^1.0.0",
