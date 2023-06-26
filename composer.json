@@ -29,7 +29,7 @@
     "vitessecms/setting": "^1.0.1",
     "vitessecms/core": "^1.2.0",
     "vitessecms/form": "^1.0.0",
-    "vitessecms/admin": "^1.0.0",
+    "vitessecms/admin": "^1.1.0",
     "vitessecms/export": "^1.0.0",
     "vitessecms/database": "^1.0.0"
   }
