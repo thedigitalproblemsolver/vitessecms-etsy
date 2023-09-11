@@ -30,7 +30,7 @@
     "vitessecms/core": "^1.3.6",
     "vitessecms/form": "^1.1.2",
     "vitessecms/admin": "^1.5.2",
-    "vitessecms/export": "^1.0.0",
+    "vitessecms/export": "^1.1.0",
     "vitessecms/database": "^1.0.1"
   }
 }
