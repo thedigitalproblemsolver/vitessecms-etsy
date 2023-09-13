@@ -1,7 +1,9 @@
-<?php declare(strict_types=1);
+<?php
+declare(strict_types=1);
 
 namespace VitesseCms\Etsy\Controllers;
 
+use stdClass;
 use VitesseCms\Content\Enum\ItemEnum;
 use VitesseCms\Content\Models\Item;
 use VitesseCms\Content\Repositories\ItemRepository;
@@ -31,19 +33,24 @@ class ListingController extends AbstractControllerFrontend
     {
         parent::onConstruct();
 
-        $this->settingService = $this->eventsManager->fire(SettingEnum::ATTACH_SERVICE_LISTENER, new \stdClass());
-        $this->exportTypeRepository = $this->eventsManager->fire(ExportTypeEnums::GET_REPOSITORY->value, new \stdClass());
-        $this->itemRepository = $this->eventsManager->fire(ItemEnum::GET_REPOSITORY, new \stdClass());
-        $this->languageRepository = $this->eventsManager(LanguageEnum::GET_REPOSITORY->value, new \stdClass());
+        $this->settingService = $this->eventsManager->fire(SettingEnum::ATTACH_SERVICE_LISTENER, new stdClass());
+        $this->exportTypeRepository = $this->eventsManager->fire(
+            ExportTypeEnums::GET_REPOSITORY->value,
+            new stdClass()
+        );
+        $this->itemRepository = $this->eventsManager->fire(ItemEnum::GET_REPOSITORY, new stdClass());
+        $this->languageRepository = $this->eventsManager(LanguageEnum::GET_REPOSITORY->value, new stdClass());
     }
 
     public function syncAction(): void
     {
         $datagroup = $this->settingService->get(SettingsEnum::ETSY_LISTING_DATAGROUP->name);
-        $etsyExports = $this->exportTypeRepository->findAll(new FindValueIterator([
-            new FindValue('type', EtsyExportHelper::class),
-            new FindValue('datagroup', $datagroup)
-        ]));
+        $etsyExports = $this->exportTypeRepository->findAll(
+            new FindValueIterator([
+                new FindValue('type', EtsyExportHelper::class),
+                new FindValue('datagroup', $datagroup)
+            ])
+        );
         $findValueIterator = new FindValueIterator([
             new FindValue('datagroup', $datagroup),
             new FindValue('outOfStock', ['$in' => ['', null, false]])
